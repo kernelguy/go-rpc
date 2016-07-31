@@ -39,6 +39,7 @@ func (p *Transport) Connect(options ITransportOptions) {
 }
 
 func (p *Transport) Send(id string, rw IRequestWrapper) error {
+	log.Debugf("Transport.Send(%s, %v)", id, rw)
 	message, err := p.protocol.Encode(rw)
 	if err != nil {
 		return err
@@ -95,7 +96,7 @@ func (this *Transport) Receive(id, message string) {
 			go func () {
 				response := this.protocol.Parse(c, rw)
 				if response != nil {
-					this.Send(id, response)
+					this.Send(c.Destination(), response)
 				}
 			}()
 		}

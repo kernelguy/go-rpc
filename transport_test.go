@@ -2,10 +2,11 @@ package gorpc
 
 import (
 	"testing"
-	log "github.com/Sirupsen/logrus"
 )
 
 func TestGetConnections(t *testing.T) {
+	beginTest("TestGetConnections")
+
 	transport := &Transport{}
 
 	_, err := transport.getConnection("1")
@@ -23,9 +24,12 @@ func TestGetConnections(t *testing.T) {
 	} else if c.Source() != "1" {
 		t.Errorf("Connection.Source does not match: %s", c.Source())
 	}
+	endTest()
 }
 
 func TestAddConnections(t *testing.T) {
+	beginTest("TestAddConnections")
+	
 	transport := &Transport{}
 
 	transport.addConnection(GetFactory().MakeAddress("1", "2", nil))
@@ -62,11 +66,12 @@ func TestAddConnections(t *testing.T) {
 	if len(transport.connections) != 0 {
 		t.Fatal("Connections count should be zero!")
 	}
+	endTest()
 }
 
 
 func TestRpcEcho(t *testing.T) {
-	log.SetLevel(log.DebugLevel)
+	beginTest("TestRpcEcho")
 	
 	transport := &LoopbackTransport{}
 	transport.init()
@@ -77,11 +82,22 @@ func TestRpcEcho(t *testing.T) {
 
 	conn, _ := transport.getConnection("2")
 
-	result := conn.RootController().(*Controller).EchoTest("Hello World")
-
-	transport.quit <- true
+	result := conn.RootController().(*Controller).Echo("Hello World")
 
 	if result != "Hello World" {
-		t.Errorf("Result Mismatch: %s", result)
+		t.Errorf("Result Mismatch: %v", result)
 	}
+	
+	r, err := conn.Call("Echo", []interface{}{"Hello World"})
+	if err != nil {
+		r = err.Error()
+	}
+
+	if r.(string) != "Hello World" {
+		t.Errorf("Result Mismatch: %v", r)
+	}
+
+	transport.quit <- true
+	
+	endTest()
 }

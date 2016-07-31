@@ -5,39 +5,73 @@ import (
 )
 
 func TestProtocolEncode(t *testing.T) {
+	beginTest("TestProtocolEncode")
 
 //	params := struct{Value string `json:"value"`}{"Hello World"}
 	params := []interface{}{"Hello World"}
 //	params := make(map[string]interface{})
 //	params["value"] = "Hello World"
 	
-	m := make(map[string]interface{})
-	m["jsonrpc"] = "2.0"
-	m["method"] = "Protocol.Encode"
-	m["params"] = params
-	m["id"] = 1
-
-	factory := GetFactory()
+	f := GetFactory()
 	
-	protocol := factory.MakeProtocol()
-	req := factory.MakeRequest()
-	rw := factory.MakeRequestWrapper()
+	protocol := f.MakeProtocol()
+	rw := f.MakeRequestWrapper()
 	
-	req.Populate(m)
-	rw.AddRequest(req)
+	rw.AddRequest(f.MakeRequest(1, "Protocol.Encode", params))
 	
 	result, err := protocol.Encode(rw)
 	
 	if err != nil {
-		t.Errorf("Encode failed: %v", err)
+		t.Errorf("Protocol.Encode failed: %v", err)
 	}
 	
 	if string(result) != `{"id":1,"jsonrpc":"2.0","method":"Protocol.Encode","params":["Hello World"]}` {
-		t.Errorf("Encode result does not match: %s", result)
+		t.Errorf("Protocol.Encode result does not match: %s", result)
 	}
+
+	rw.Clear().AddRequest(f.MakeResponse(1, "Hello World", nil))
+	
+	result, err = protocol.Encode(rw)
+	
+	if err != nil {
+		t.Errorf("Protocol.Encode failed: %v", err)
+	}
+	
+	if string(result) != `{"id":1,"jsonrpc":"2.0","result":"Hello World"}` {
+		t.Errorf("Protocol.Encode result does not match: %s", result)
+	}
+
+	rw.Clear().AddRequest(f.MakeResponse(1, nil, f.MakeRpcError(ErrNotAllowed, nil)))
+	
+	result, err = protocol.Encode(rw)
+
+	if err != nil {
+		t.Errorf("Protocol.Encode failed: %v", err)
+	}
+
+	if string(result) != `{"error":{"code":-32000,"message":"Not Allowed","data":null},"id":1,"jsonrpc":"2.0"}` {
+		t.Errorf("Protocol.Encode result does not match: %s", result)
+	}
+
+	rw.Clear()
+	rw.AddRequest(f.MakeResponse(1, "Hello World", nil))
+	rw.AddRequest(f.MakeResponse(2, nil, f.MakeRpcError(ErrNotAllowed, nil)))
+
+	result, err = protocol.Encode(rw)
+
+	if err != nil {
+		t.Errorf("Protocol.Encode failed: %v", err)
+	}
+
+	if string(result) != `[{"id":1,"jsonrpc":"2.0","result":"Hello World"},{"error":{"code":-32000,"message":"Not Allowed","data":null},"id":2,"jsonrpc":"2.0"}]` {
+		t.Errorf("Protocol.Encode result does not match: %s", result)
+	}
+	endTest()
 }
 
 func TestProtocolDecode(t *testing.T) {
+	beginTest("TestProtocolDecode")
+
 	s := []byte(`{"id":1,"jsonrpc":"2.0","method":"Protocol.Decode","params":["Hello World"]}`)
 
 	factory := GetFactory()
@@ -71,6 +105,6 @@ func TestProtocolDecode(t *testing.T) {
 	if params[0] != "Hello World" {
 		t.Error("Decode result request params does not match")
 	}
-	
+	endTest()
 }
 

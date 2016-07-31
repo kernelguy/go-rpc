@@ -23,7 +23,8 @@ type IFactory interface {
 	MakeRouter() IRouter
 	MakeRpcError(code int, previous error) IRpcError
 	MakeRequestWrapper() IRequestWrapper
-	MakeRequest() IRequest
+	MakeRequest(id, method, params interface{}) IRequest
+	MakeResponse(id, result, error interface{}) IRequest
 }
 
 
@@ -55,7 +56,7 @@ type IConnection interface {
 	Close()
 	Call(method string, params interface{}) (interface{}, error)
 	Notify(method string, params interface{})
-	Response(id int, result interface{})
+	Response(id interface{}, result interface{})
 	RootController() interface{}
 	SetRootController(obj interface{})
 }
@@ -83,8 +84,9 @@ type IRpcError interface {
 
 
 type IRequestWrapper interface {
-	AddRequest(IRequest)
-	SetBatchRequest(bool)
+	AddRequest(IRequest) IRequestWrapper
+	Clear() IRequestWrapper
+	SetBatchRequest(bool) IRequestWrapper
 	IsEmpty() bool
 	IsBatchRequest() bool
 	GetRequest() IRequest
@@ -97,8 +99,8 @@ type IRequest interface {
 	IsRequest() bool
 	IsResponse() bool
 	Populate(map[string]interface{})
-	CreateRequest(id, method, params interface{})
-	CreateResponse(id, result, error interface{})
+	SetRequest(id, method, params interface{})
+	SetResponse(id, result, error interface{})
 
 	Id() interface{}
 	Method() string

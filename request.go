@@ -2,6 +2,7 @@ package gorpc
 
 import (
 	"encoding/json"
+	"fmt"
 	log "github.com/Sirupsen/logrus"
 )
 
@@ -27,7 +28,7 @@ func (this *Request) Populate(vr map[string]interface{}) {
 	this.data = vr
 }
 
-func (this *Request) CreateRequest(id, method, params interface{}) {
+func (this *Request) SetRequest(id, method, params interface{}) {
 	this.data = make(map[string]interface{}, 4)
 	if id != nil {
 		this.data["id"] = id
@@ -40,7 +41,7 @@ func (this *Request) CreateRequest(id, method, params interface{}) {
 	log.Debugf("Request created: %v", this.data)
 }
 
-func (this *Request) CreateResponse(id, result, error interface{}) {
+func (this *Request) SetResponse(id, result, error interface{}) {
 	this.data = make(map[string]interface{}, 3)
 	this.data["id"] = id
 	if error != nil {
@@ -49,6 +50,7 @@ func (this *Request) CreateResponse(id, result, error interface{}) {
 		this.data["result"] = result
 	}
 	this.data["jsonrpc"] = "2.0"
+	log.Debugf("Request.CreateResponse result: %v", this.data)
 }
 
 func (this *Request) Id() interface{} {
@@ -91,6 +93,32 @@ func (this *Request) JsonRPC() string {
 		return ""
 	}
 	return this.data["jsonrpc"].(string)
+}
+
+func (this *Request) String() string {
+	s := "Request{data:"
+	sep := ""
+	if this.data != nil {
+		s = s + "{"
+		for k, v := range this.data {
+			switch v.(type) {
+				case nil:
+					s = fmt.Sprintf("%s%s%s:nil", s, sep, k)
+				case string:
+					s = fmt.Sprintf("%s%s%s:\"%s\"", s, sep, k, v)
+				case int, int64:
+					s = fmt.Sprintf("%s%s%s:%d", s, sep, k, v)
+				case float32, float64:
+					s = fmt.Sprintf("%s%s%s:%f", s, sep, k, v)
+				default:
+					s = fmt.Sprintf("%s%s%s:(%T)%v", s, sep, k, v, v)
+			}
+			sep = ", "
+		}
+		s = s + "}"
+	}
+	s = s + "}"
+	return s
 }
 
 func (this *Request) MarshalJSON() (result []byte, err error) {

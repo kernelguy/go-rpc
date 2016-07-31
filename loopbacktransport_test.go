@@ -21,8 +21,7 @@ func (this *TestTransport) Receive(id, message string) {
 }
 
 func TestLoopbackTransport(t *testing.T) {
-
-	log.SetLevel(log.DebugLevel)
+	beginTest("TestLoopbackTransport")
 
 	trans := &TestTransport{}
 	trans.init()
@@ -38,5 +37,6 @@ func TestLoopbackTransport(t *testing.T) {
 	if result != "1:Hello World" {
 		t.Errorf("Result was incorrect: (%s)", result)
 	}
+	endTest()
 }
 

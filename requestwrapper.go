@@ -11,15 +11,22 @@ type RequestWrapper struct {
 	isBatch bool
 }
 
-func (p *RequestWrapper) AddRequest(request IRequest) {
-	p.requests = append(p.requests, request)
-	if len(p.requests) > 1 {
-		p.isBatch = true
+func (this *RequestWrapper) AddRequest(request IRequest) IRequestWrapper {
+	this.requests = append(this.requests, request)
+	if len(this.requests) > 1 {
+		this.isBatch = true
 	}
+	return this
 }
 
-func (p *RequestWrapper) SetBatchRequest(value bool) {
-	p.isBatch = value
+func (this *RequestWrapper) Clear() IRequestWrapper {
+	this.requests = make([]IRequest, 0)
+	return this
+}
+
+func (this *RequestWrapper) SetBatchRequest(value bool) IRequestWrapper {
+	this.isBatch = value
+	return this
 }
 
 func (p *RequestWrapper) IsEmpty() bool {

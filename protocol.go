@@ -24,23 +24,19 @@ func (this *Protocol) Decode(data []byte) (IRequestWrapper, error) {
 	if err != nil {
 		return nil, err
 	}
-	result := RequestWrapper{}
+	f := GetFactory()
+	result := f.MakeRequestWrapper()
 	log.Debugf("Protocol.Decode Result: %v", v)
 	if reflect.TypeOf(v).Kind() == reflect.Slice {
 		result.SetBatchRequest(true)
 		vr, _ := v.([]map[string]interface{})
 		for i:=0 ; i < len(vr); i++ {
-			req := GetFactory().MakeRequest()
-			req.Populate(vr[i])
-			result.AddRequest(req)
+			result.AddRequest(f.MakeRequest(vr[i], nil, nil))
 		} 
 	} else {
-		req := GetFactory().MakeRequest()
-		vr, _ := v.(map[string]interface{})
-		req.Populate(vr)
-		result.AddRequest(req)
+		result.AddRequest(f.MakeRequest(v, nil, nil))
 	}
-	return &result, nil
+	return result, nil
 }
 
 func (this *Protocol) Parse(connection IConnection, request IRequestWrapper) IRequestWrapper {

@@ -5,16 +5,10 @@ import (
 )
 
 func TestRequest(t *testing.T) {
+	beginTest("TestRequest")
 
-	m := make(map[string]interface{})
-	m["jsonrpc"] = "2.0"
-	m["method"] = "Echo"
-	m["params"] = "Hello World"
-	m["id"] = 1
-
-	factory := GetFactory()
-	req := factory.MakeRequest()
-	req.Populate(m)
+	f := GetFactory()
+	req := f.MakeRequest(1, "Echo", "Hello World")
 	
 	if req.IsError() {
 		t.Error("Request should not be error")
@@ -27,18 +21,14 @@ func TestRequest(t *testing.T) {
 	if !req.IsRequest() {
 		t.Error("Request should be request")
 	}
+	endTest()
 }
 
 func TestResponse(t *testing.T) {
+	beginTest("TestResponse")
 
-	m := make(map[string]interface{})
-	m["jsonrpc"] = "2.0"
-	m["result"] = "Hello World"
-	m["id"] = 1
-
-	factory := GetFactory()
-	req := factory.MakeRequest()
-	req.Populate(m)
+	f := GetFactory()
+	req := f.MakeResponse(1, "Hello World", nil)
 	
 	if req.IsError() {
 		t.Error("Request should not be error")
@@ -51,19 +41,15 @@ func TestResponse(t *testing.T) {
 	if req.IsRequest() {
 		t.Error("Request should not be request")
 	}
+	endTest()
 }
 
 func TestError(t *testing.T) {
+	beginTest("TestError")
 
-	factory := GetFactory()
+	f := GetFactory()
 
-	m := make(map[string]interface{})
-	m["jsonrpc"] = "2.0"
-	m["error"] = factory.MakeRpcError(ErrInvalidParams, nil)
-	m["id"] = 1
-
-	req := factory.MakeRequest()
-	req.Populate(m)
+	req := f.MakeResponse(1, nil, f.MakeRpcError(ErrInvalidParams, nil))
 
 	if !req.IsError() {
 		t.Error("Request should be error")
@@ -76,6 +62,7 @@ func TestError(t *testing.T) {
 	if req.IsRequest() {
 		t.Error("Request should not be request")
 	}
+	endTest()
 }
 
 
