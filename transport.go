@@ -1,6 +1,7 @@
 package gorpc
 
 import (
+	log "github.com/Sirupsen/logrus"
 	"fmt"
 )
 
@@ -11,8 +12,21 @@ type TransportOptions struct {
 
 type Transport struct {
 	connections map[string]IConnection
-	router IRouter
 	protocol IProtocol
+	onReceive func(id, message string)
+	onWrite func(id, message string)
+}
+
+
+func (this *Transport) Init(onReceive, onWrite func(id, message string)) {
+	this.protocol = GetFactory().MakeProtocol()
+
+	if onReceive != nil {
+		this.onReceive = onReceive
+	}
+	if onWrite != nil {
+		this.onWrite = onWrite
+	}
 }
 
 
@@ -29,20 +43,20 @@ func (p *Transport) Send(id string, rw IRequestWrapper) error {
 	if err != nil {
 		return err
 	}
-	p.write(id, string(message))
+	p.Write(id, string(message))
 	return nil
 }
 
-func (p *Transport) Close() {
+func (this *Transport) Close() {
 	
 }
 
-func (p *Transport) addConnection(id string) IConnection {
+func (p *Transport) addConnection(addr IConnectionAddress) IConnection {
 	if (p.connections == nil) {
 		p.connections = make(map[string]IConnection)
 	}
-	c := GetFactory().MakeConnection(p, id)
-	p.connections[id] = c
+	c := GetFactory().MakeConnection(p, addr)
+	p.connections[addr.Source()] = c
 	return c
 }
 
@@ -64,26 +78,38 @@ func (p *Transport) getConnection(id string) (IConnection, error) {
 	return c, nil
 }
 
-func (p *Transport) receive(id, message string) {
-	c, err := p.getConnection(id)
-	if err != nil {
-		// We should never get here...
-		return
-	}
-	rw, err := p.protocol.Decode([]byte(message))
-	if err != nil {
-		// We cannot return a cParseError, since we could not decode the request we have no id 
-		return
-	}
-	go func () {
-		response := p.router.Route(c, rw)
-		if response != nil {
-			p.Send(id, response)
+func (this *Transport) Receive(id, message string) {
+	if this.onReceive == nil {
+		this.onReceive = func(id, message string) {
+			log.Debugf("Transport.Receive(%s, %s)", id, message)
+			c, err := this.getConnection(id)
+			if err != nil {
+				// We should never get here...
+				return
+			}
+			rw, err := this.protocol.Decode([]byte(message))
+			if err != nil {
+				// We cannot return an ErrParseError, since we could not decode the request we have no id 
+				return
+			}
+			go func () {
+				response := this.protocol.Parse(c, rw)
+				if response != nil {
+					this.Send(id, response)
+				}
+			}()
 		}
-	}()
+	}
+	this.onReceive(id, message)
 }
 
-func (p *Transport) write(id, message string) {
-	
+func (this *Transport) Write(id, message string) {
+	if this.onWrite == nil {
+		this.onWrite = func(id, message string) {
+			log.Debugf("Transport.Write(%s, %s)", id, message)
+			// Doing nothing here...
+		}
+	}
+	this.onWrite(id, message)
 }
 

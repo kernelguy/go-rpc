@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"reflect"
 	"fmt"
+	log "github.com/Sirupsen/logrus"
 )
 
 type Protocol struct {
+	router IRouter
 }
 
 
@@ -15,43 +17,49 @@ func (this *Protocol) Encode(request IRequestWrapper) ([]byte, error) {
 	return b, err
 }
 
-func (this *Protocol) Decode(data []byte) (*RequestWrapper, error) {
+func (this *Protocol) Decode(data []byte) (IRequestWrapper, error) {
+	log.Debugf("Protocol.Decode(%s)", string(data))
 	var v interface{}
-	err := json.Unmarshal(data, v)
+	err := json.Unmarshal(data, &v)
 	if err != nil {
 		return nil, err
 	}
 	result := RequestWrapper{}
-	fmt.Printf("Protocol decode type: %s\n", reflect.TypeOf(v).String())
+	log.Debugf("Protocol.Decode Result: %v", v)
 	if reflect.TypeOf(v).Kind() == reflect.Slice {
 		result.SetBatchRequest(true)
 		vr, _ := v.([]map[string]interface{})
 		for i:=0 ; i < len(vr); i++ {
-			if err := this.validate(vr[i]); err != nil {
-				return nil, err
-			}
 			req := GetFactory().MakeRequest()
 			req.Populate(vr[i])
 			result.AddRequest(req)
 		} 
 	} else {
-		if err := this.validate(v.(map[string]interface{})); err != nil {
-			return nil, err
-		}
 		req := GetFactory().MakeRequest()
-		req.Populate(v.(map[string]interface{}))
+		vr, _ := v.(map[string]interface{})
+		req.Populate(vr)
 		result.AddRequest(req)
 	}
 	return &result, nil
 }
 
-func (this *Protocol) validate(r map[string]interface{}) error {
-	json, ok := r["json"]
+func (this *Protocol) Parse(connection IConnection, request IRequestWrapper) IRequestWrapper {
+	
+	if this.router == nil {
+		this.router = GetFactory().MakeRouter()
+		this.router.Init(this.validate)
+	}
+
+	return this.router.Route(connection, request)	
+}
+
+
+func (this *Protocol) validate(r IRequest) {
+	json, ok := r.(IJsonRPC2Request)
 	if !ok {
-		return GetFactory().MakeRpcError(cInvalidRequest, fmt.Errorf("Json property does not exist"))
+		panic(GetFactory().MakeRpcError(ErrInvalidRequest, fmt.Errorf("Jsonrpc property does not exist")))
 	}
-	if json != "2.0" {
-		return GetFactory().MakeRpcError(cInvalidRequest, fmt.Errorf("Json version mismatch"))
+	if json.JsonRPC() != "2.0" {
+		panic(GetFactory().MakeRpcError(ErrInvalidRequest, fmt.Errorf("Jsonrpc version mismatch")))
 	}
-	return nil
 }

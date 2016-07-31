@@ -7,13 +7,13 @@ import (
 type Factory struct {
 }
 
-var instance *Factory
+var instance IFactory
 
 func init() {
 	instance = &Factory{}
 }
 
-func SetFactory(factory *Factory) {
+func SetFactory(factory IFactory) {
 	instance = factory
 }
 
@@ -27,11 +27,19 @@ func (this *Factory) MakeTransportOptions() ITransportOptions {
 }
 
 func (this *Factory) MakeTransport() ITransport {
-	return &Transport{router: this.MakeRouter(), protocol: this.MakeProtocol()}
+	t := &Transport{}
+	t.Init(nil, nil)
+	return t
 }
 
-func (this *Factory) MakeConnection(transport ITransport, id string) IConnection {
-	return &Connection{name: id, transport: transport.(*Transport)}
+func (this *Factory) MakeAddress(src, dest string, options interface{}) IConnectionAddress {
+	return &ConnectionAddress{src: src, dest: dest, options: options}
+}
+
+func (this *Factory) MakeConnection(transport ITransport, addr IConnectionAddress) IConnection {
+	result := &Connection{transport: transport.(*Transport)}
+	result.SetAddress(addr.Source(), addr.Destination(), addr.Options())
+	return result
 }
 
 func (this *Factory) MakeProtocol() IProtocol {

@@ -1,7 +1,8 @@
 package gorpc
 
 import (
-
+	"encoding/json"
+	"fmt"
 )
 
 
@@ -36,3 +37,16 @@ func (p *RequestWrapper) GetRequest() IRequest {
 func (p *RequestWrapper) GetBatchRequests() []IRequest {
 	return p.requests
 }
+
+func (p *RequestWrapper) MarshalJSON() (result []byte, err error) {
+	if p.IsBatchRequest() {
+		result, err = json.Marshal(p.requests) 
+	} else if !p.IsEmpty() {
+		result, err = json.Marshal(p.requests[0]) 
+	} else {
+		err = fmt.Errorf("No requests in wrapper!!")
+		result = nil
+	}
+	return
+}
+

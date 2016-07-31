@@ -4,12 +4,12 @@ import (
 	"fmt"
 )
 
-const cParseError = -32700  	// An error occurred on the server while parsing the JSON text.
-const cInvalidRequest = -32600 	// The JSON sent is not a valid Request object.
-const cMethodNotFound = -32601 	// The method does not exist / is not available.
-const cInvalidParams = -32602 	// Invalid method parameter(s).
-const cInternalError = -32603	// Internal error
-const cNotAllowed = -32000		// Not allowed custom exception
+const ErrParseError = -32700  		// An error occurred on the server while parsing the JSON text.
+const ErrInvalidRequest = -32600 	// The JSON sent is not a valid Request object.
+const ErrMethodNotFound = -32601 	// The method does not exist / is not available.
+const ErrInvalidParams = -32602 	// Invalid method parameter(s).
+const ErrInternalError = -32603		// Internal error
+const ErrNotAllowed = -32000		// Not allowed custom exception
 
 
 type RpcError struct {
@@ -22,24 +22,24 @@ type RpcError struct {
 func NewRpcError(code int, previous error) IRpcError {
 	var message string
 	switch code {
-		case cParseError:
+		case ErrParseError:
 			message = "Parse Error"
 
-		case cInvalidRequest:
+		case ErrInvalidRequest:
 			message = "Invalid Request"
 
-		case cMethodNotFound:
+		case ErrMethodNotFound:
 			message = "Method Not Found"
 
-		case cInvalidParams:
+		case ErrInvalidParams:
 			message = "Invalid Params"
 
-		case cNotAllowed:
+		case ErrNotAllowed:
 			message = "Not Allowed"
 			
 		default:
 			message = "Internal Error"
-			code = cInternalError
+			code = ErrInternalError
 	}
 	return &RpcError{code: code, message: message, data: previous}
 }

@@ -1,20 +1,9 @@
 package gorpc
 
 import (
-    "testing"
+	"testing"
+	log "github.com/Sirupsen/logrus"
 )
-
-type Message struct {
-	id string
-	data string
-}
-
-type MyTransport struct {
-	Transport
-	wire chan Message
-	terminated bool
-}
-
 
 func TestGetConnections(t *testing.T) {
 	transport := &Transport{}
@@ -23,40 +12,39 @@ func TestGetConnections(t *testing.T) {
 	if err == nil {
 		t.Error("We should have got an error")
 	} else if err.Error() != "No connections found (1)" {
-		t.Error("Error message does not match: " + err.Error())
+		t.Errorf("Error message does not match: %v",  err)
 	}
 
-	transport.addConnection("2")
+	transport.addConnection(GetFactory().MakeAddress("1", "2", nil))
 
-	_, err2 := transport.getConnection("1")
-	if err2 == nil {
-		t.Error("We should have got an error!")
-	} else if err2.Error() != "Connection 1 not found" {
-		t.Error("Error message does not match: " + err2.Error())
+	c, err2 := transport.getConnection("1")
+	if err2 != nil {
+		t.Error("We should not have got an error!")
+	} else if c.Source() != "1" {
+		t.Errorf("Connection.Source does not match: %s", c.Source())
 	}
 }
 
-
 func TestAddConnections(t *testing.T) {
 	transport := &Transport{}
-	
-	transport.addConnection("1")
-	transport.addConnection("2")
-	
+
+	transport.addConnection(GetFactory().MakeAddress("1", "2", nil))
+	transport.addConnection(GetFactory().MakeAddress("2", "1", nil))
+
 	connection, err := transport.getConnection("1")
 	if err != nil {
 		t.Error(err)
 	}
-	if connection.(*Connection).name != "1" {
+	if connection.(*Connection).Source() != "1" {
 		t.Fatal("Connection name does not match!")
 	}
-	
+
 	if len(transport.connections) != 2 {
 		t.Fatal("Connections count does not match!")
 	}
 
 	transport.removeConnection("1")
-		
+
 	if len(transport.connections) != 1 {
 		t.Fatal("Connections count should be zero!")
 	}
@@ -65,52 +53,35 @@ func TestAddConnections(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if connection2.(*Connection).name != "2" {
+	if connection2.(*Connection).Source() != "2" {
 		t.Fatal("Connection name does not match!")
 	}
 
 	transport.removeConnection("2")
-		
+
 	if len(transport.connections) != 0 {
 		t.Fatal("Connections count should be zero!")
 	}
 }
 
-func (p *MyTransport) run() {
-	p.wire = make(chan Message, 10)
-	p.terminated = false
+
+func TestRpcEcho(t *testing.T) {
+	log.SetLevel(log.DebugLevel)
 	
-	go func() {
-		var in Message
-		for !p.terminated {
-			in = <-p.wire
-			p.receive(in.id, in.data)
-		}
-	}()
-}
-
-func (p *MyTransport) write(id, message string) {
-	go func() {
-		out := Message{id: id, data: message}
-		p.wire <- out
-	}()
-}
-
-func TestRpcEcho( t * testing.T) {
-	transport := &MyTransport{}
+	transport := &LoopbackTransport{}
+	transport.init()
 	transport.run()
 
-	transport.addConnection("1")
-	transport.addConnection("2")
+	transport.addConnection(GetFactory().MakeAddress("1", "2", nil))
+	transport.addConnection(GetFactory().MakeAddress("2", "1", nil))
 
-	conn, _ := transport.getConnection("2");
-	
-	result, _ := conn.Call("Echo", "Hello World")
-	
-	transport.terminated = true
-	
-	if result.(string) != "Hello World" {
-		t.Errorf("Result Mismatch: " + result.(string))
+	conn, _ := transport.getConnection("2")
+
+	result := conn.RootController().(*Controller).EchoTest("Hello World")
+
+	transport.quit <- true
+
+	if result != "Hello World" {
+		t.Errorf("Result Mismatch: %s", result)
 	}
 }
-
