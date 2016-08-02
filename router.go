@@ -39,8 +39,10 @@ func (p *Router) invokeBatch(connection IConnection, rm []IRequest) IRequestWrap
 			}
 			log.Debugf("Router.invokeBatch returning: %v", result)
 		} else if rm[i].IsResponse() {
+			log.Debugf("Router.Response: (%T)%v", rm[i], rm[i])
 			connection.Response(rm[i].Id(), rm[i].Result())
 		} else { // error...
+			log.Debugf("Router.Error: (%T)%v", rm[i], rm[i])
 			connection.Response(rm[i].Id(), rm[i].Error())
 		}
 	}
@@ -50,10 +52,12 @@ func (p *Router) invokeBatch(connection IConnection, rm []IRequest) IRequestWrap
 func (this *Router) invoke(connection IConnection, request *Request) (response interface{}, err IRpcError) {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Debugf("Router.invoke Recovered from panic: %v", r)
+			log.Debugf("Router.invoke Recovered from panic: (%T)%v", r, r)
 			switch x := r.(type) {
 			case RpcError:
 				err = &x
+			case *RpcError:
+				err = x
 			case string:
 				err = NewRpcError(ErrInternalError, errors.New(x))
 			case error:
@@ -85,14 +89,15 @@ func (this *Router) invoke(connection IConnection, request *Request) (response i
 func (this *Router) getRoute(obj interface{}, method string) (interface{}, reflect.Value) {
 
 	path := strings.Split(method, ".")
+	v := reflect.ValueOf(obj)
 	for len(path) > 1 {
-		obj = reflect.ValueOf(obj).FieldByName(path[0])
-		if obj == nil {
+		v = v.Elem().FieldByName(path[0]).Addr()
+		if !v.IsValid() {
 			panic(NewRpcError(ErrMethodNotFound, nil))
 		}
 		path = path[1:]
 	}
-	m := reflect.ValueOf(obj).MethodByName("RPC_" + path[0])
+	m := v.MethodByName("RPC_" + path[0])
 	if m.IsValid() == false {
 		panic(NewRpcError(ErrMethodNotFound, nil))
 	}
@@ -100,31 +105,9 @@ func (this *Router) getRoute(obj interface{}, method string) (interface{}, refle
 	return obj, m
 }
 
-func (this *Router) initializeStruct(t reflect.Type, v reflect.Value) {
-	for i := 0; i < v.NumField(); i++ {
-		f := v.Field(i)
-		ft := t.Field(i)
-		switch ft.Type.Kind() {
-		case reflect.Map:
-			f.Set(reflect.MakeMap(ft.Type))
-		case reflect.Slice:
-			f.Set(reflect.MakeSlice(ft.Type, 0, 0))
-		case reflect.Chan:
-			f.Set(reflect.MakeChan(ft.Type, 0))
-		case reflect.Struct:
-			this.initializeStruct(ft.Type, f)
-		case reflect.Ptr:
-			fv := reflect.New(ft.Type.Elem())
-			this.initializeStruct(ft.Type.Elem(), fv.Elem())
-			f.Set(fv)
-		default:
-		}
-	}
-}
-
 func (this *Router) checkParams(m reflect.Value, params interface{}) (result []reflect.Value) {
 
-	requiredParams := make(map[int]string, 10)
+	requiredParams := make(map[int]reflect.StructField, 10)
 
 	n := m.Type().NumIn()
 	if n == 0 {
@@ -135,14 +118,13 @@ func (this *Router) checkParams(m reflect.Value, params interface{}) (result []r
 
 	n = m.Type().In(0).NumField()
 	for i := 0; i < n; i++ {
-		requiredParams[i] = m.Type().In(0).Field(i).Name
+		requiredParams[i] = m.Type().In(0).Field(i)
 	}
 
 	if params != nil {
-		//t := reflect.TypeOf(EchoParams{})
 		rt := m.Type().In(0)
 		rv := reflect.New(rt)
-		this.initializeStruct(rt, rv.Elem())
+		InitializeStruct(rt, rv.Elem())
 
 		v := reflect.TypeOf(params)
 		switch v.Kind() {
@@ -151,19 +133,15 @@ func (this *Router) checkParams(m reflect.Value, params interface{}) (result []r
 			if len(p) != n {
 				panic(NewRpcError(ErrInvalidParams, nil))
 			}
-			for i := 0; i < n; i++ {
-				rv.Elem().FieldByName(requiredParams[i]).Set(reflect.ValueOf(p[requiredParams[i]]))
-			}
+			FillStructFromMap(rv.Interface(), p)
 			result = append(result, rv.Elem())
 
 		case reflect.Slice:
-			if len(params.([]interface{})) != n {
+			p := params.([]interface{})
+			if len(p) != n {
 				panic(NewRpcError(ErrInvalidParams, nil))
 			}
-			p := params.([]interface{})
-			for i := 0; i < n; i++ {
-				rv.Elem().FieldByName(requiredParams[i]).Set(reflect.ValueOf(p[i]))
-			}
+			FillStructFromArray(rv.Interface(), p, requiredParams)
 			result = append(result, rv.Elem())
 
 		default:

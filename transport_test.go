@@ -2,6 +2,7 @@ package gorpc
 
 import (
 	"testing"
+	"time"
 )
 
 func TestGetConnections(t *testing.T) {
@@ -13,7 +14,7 @@ func TestGetConnections(t *testing.T) {
 	if err == nil {
 		t.Error("We should have got an error")
 	} else if err.Error() != "No connections found (1)" {
-		t.Errorf("Error message does not match: %v",  err)
+		t.Errorf("Error message does not match: %v", err)
 	}
 
 	transport.addConnection(GetFactory().MakeAddress("1", "2", nil))
@@ -29,7 +30,7 @@ func TestGetConnections(t *testing.T) {
 
 func TestAddConnections(t *testing.T) {
 	beginTest("TestAddConnections")
-	
+
 	transport := &Transport{}
 
 	transport.addConnection(GetFactory().MakeAddress("1", "2", nil))
@@ -69,10 +70,9 @@ func TestAddConnections(t *testing.T) {
 	endTest()
 }
 
-
 func TestRpcEcho(t *testing.T) {
 	beginTest("TestRpcEcho")
-	
+
 	transport := &LoopbackTransport{}
 	transport.init()
 	transport.run()
@@ -87,7 +87,7 @@ func TestRpcEcho(t *testing.T) {
 	if result != "Hello World" {
 		t.Errorf("Result Mismatch: %v", result)
 	}
-	
+
 	r, err := conn.Call("Echo", []interface{}{"Hello World"})
 	if err != nil {
 		r = err.Error()
@@ -97,7 +97,43 @@ func TestRpcEcho(t *testing.T) {
 		t.Errorf("Result Mismatch: %v", r)
 	}
 
+	r, err = conn.Call("Echo", "Hello World")
+	if err == nil {
+		t.Error("Call should have returned an error.")
+	}
+	if err.Error() != "Code: -32602, Message: Invalid Params, Data: " {
+		t.Errorf("Call should have returned an RpcError(Invalid Params): \"%s\"", err.Error())
+	}
+
 	transport.quit <- true
-	
+
+	endTest()
+}
+
+func TestNotify(t *testing.T) {
+	beginTest("TestNotify")
+
+	transport := &LoopbackTransport{}
+	transport.init()
+	transport.run()
+
+	transport.addConnection(GetFactory().MakeAddress("1", "2", nil))
+	transport.addConnection(GetFactory().MakeAddress("2", "1", nil))
+
+	conn, _ := transport.getConnection("1")
+
+	conn.Notify("Echo", []interface{}{"Hello World"})
+
+	if len(conn.(*Connection).pendingRequests) > 0 {
+		t.Error("There is more that zero pending requests.")
+	}
+
+	time.Sleep(time.Millisecond * 10)
+
+	if (transport.LastReceivedMessage.id != "2") || (transport.LastReceivedMessage.data != `{"jsonrpc":"2.0","method":"Echo","params":["Hello World"]}`) {
+		t.Errorf("Wrong message received: (%T)%s, %s", transport.LastReceivedMessage, transport.LastReceivedMessage.id, transport.LastReceivedMessage.data)
+	}
+	transport.quit <- true
+
 	endTest()
 }

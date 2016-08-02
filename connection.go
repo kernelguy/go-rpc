@@ -10,7 +10,7 @@ type Connection struct {
 	ConnectionAddress
 	transport ITransport
 	pendingRequests map[int]chan interface{}
-	rootController interface{}
+	rootController IController
 }
 
 // Global id generator
@@ -74,14 +74,15 @@ func (this *Connection) Response(id interface{}, result interface{}) {
 	}
 }
 
-func (this *Connection) RootController() interface{} {
+func (this *Connection) RootController() IController {
 	if this.rootController == nil {
-		this.rootController = &Controller{connection: this}
+		this.SetRootController( GetFactory().MakeController() )
 	}
 	return this.rootController
 }
 
-func (this *Connection) SetRootController(obj interface{}) {
+func (this *Connection) SetRootController(obj IController) {
+	obj.SetConnection(this)
 	this.rootController = obj
 }
 

@@ -2,6 +2,7 @@ package gorpc
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 )
@@ -26,6 +27,19 @@ func (this *Request) IsResponse() bool {
 
 func (this *Request) Populate(vr map[string]interface{}) {
 	this.data = vr
+	err, _ := vr["error"].(map[string]interface{})
+	if err != nil {
+		e := &RpcError{Code: int(err["code"].(float64)), Message: err["message"].(string)}
+		if err["data"] != nil {
+			switch x := err["data"].(type) {
+			case string:
+				e.Data = errors.New(x)
+			case error:
+				e.Data = x
+			}
+		}
+		this.data["error"] = e
+	}
 }
 
 func (this *Request) SetRequest(id, method, params interface{}) {

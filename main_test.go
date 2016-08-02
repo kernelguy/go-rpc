@@ -22,7 +22,6 @@ func file_line() string {
 }
 
 func beginTest(name string) {
-	log.SetLevel(log.DebugLevel)
 	log.Infof("***** %s ***** %s", name, file_line())
 }
 
@@ -32,6 +31,9 @@ func endTest() {
 
 func TestMain(m *testing.M) {
 	flag.Parse()
+	if testing.Verbose() {
+		log.SetLevel(log.DebugLevel)
+	}
 	log.Info("***** STARTING TEST *****")
 	r := m.Run()
 	log.Info("***** TEST FINISHED *****")

@@ -42,6 +42,10 @@ func (this *Factory) MakeConnection(transport ITransport, addr IConnectionAddres
 	return result
 }
 
+func (this *Factory) MakeController() IController {
+	return &Controller{}
+}
+
 func (this *Factory) MakeProtocol() IProtocol {
 	return &Protocol{}
 }

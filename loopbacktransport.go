@@ -13,6 +13,7 @@ type LoopbackTransport struct {
 	Transport
 	wire chan Message
 	quit chan bool
+	LastReceivedMessage Message
 }
 
 func (this *LoopbackTransport) init() {
@@ -31,6 +32,7 @@ func (this *LoopbackTransport) run() {
 				return
 				
 			case in := <-this.wire:
+				this.LastReceivedMessage = in
 				this.Receive(in.id, in.data)
 			}
 		}

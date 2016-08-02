@@ -27,16 +27,24 @@ type EchoParams struct {
 	Value string
 }
 func (this *Controller) RPC_Echo(params EchoParams) string {
-	log.Infof("RPC Echo called with: (%T)%s", params.Value, params.Value)
+	log.Debugf("RPC Echo called with: (%T)%s", params.Value, params.Value)
 	return params.Value
 }
 
 
 func (this *Controller) Echo(value string) string {
 	p := struct{Value string}{Value: value}
-	r, err := this.connection.Call("Echo", p)
+	r, err := this.Connection().Call("Echo", p)
 	if err != nil {
 		return err.Error()
 	}
 	return r.(string)
+}
+
+func (this *Controller) SetConnection(connection IConnection) {
+	this.connection = connection
+}
+
+func (this *Controller) Connection() IConnection {
+	return this.connection
 }

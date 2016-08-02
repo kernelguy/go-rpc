@@ -19,6 +19,7 @@ type IFactory interface {
 	MakeTransport() ITransport
 	MakeAddress(src, dest string, options interface{}) IConnectionAddress
 	MakeConnection(transport ITransport, addr IConnectionAddress) IConnection
+	MakeController() IController
 	MakeProtocol() IProtocol
 	MakeRouter() IRouter
 	MakeRpcError(code int, previous error) IRpcError
@@ -57,10 +58,14 @@ type IConnection interface {
 	Call(method string, params interface{}) (interface{}, error)
 	Notify(method string, params interface{})
 	Response(id interface{}, result interface{})
-	RootController() interface{}
-	SetRootController(obj interface{})
+	RootController() IController
+	SetRootController(obj IController)
 }
 
+type IController interface {
+	Connection() IConnection
+	SetConnection(IConnection)
+}
 
 type IProtocol interface {
 	Encode(IRequestWrapper) ([]byte, error)
