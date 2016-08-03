@@ -2,8 +2,7 @@ package gorpc
 
 import (
 	log "github.com/Sirupsen/logrus"
-	"fmt"
-	"strconv"
+	"reflect"
 )
 
 type Connection struct {
@@ -29,7 +28,7 @@ func (this *Connection) Call(method string, params interface{}) (interface{},err
 	id := _rpc_id
 	this.pendingRequests[id] = make(chan interface{})
 	f := GetFactory()
-	r := f.MakeRequest(strconv.Itoa(id), method, params)
+	r := f.MakeRequest(id, method, params)
 	log.Debugf("Connection(%s).Call(%v)", this.Source(), r)
 	rw := f.MakeRequestWrapper()
 	rw.AddRequest(r)
@@ -60,14 +59,8 @@ func (this *Connection) Notify(method string, params interface{}) {
 
 func (this *Connection) Response(id interface{}, result interface{}) {
 	var i int
-	switch id.(type) {
-		case string:
-			i, _ = strconv.Atoi(id.(string))
-		case int, int64:
-			i = id.(int)
-		default:
-			panic(fmt.Errorf("RPC response to this package should always be integers, not: (%T)%v", id, id))
-	}
+	v := reflect.ValueOf(id).Convert(reflect.TypeOf(i))
+	i = v.Interface().(int)
 	ch, ok := this.pendingRequests[i]
 	if ok  {
 		ch<- result

@@ -82,7 +82,7 @@ func TestRpcEcho(t *testing.T) {
 
 	conn, _ := transport.getConnection("2")
 
-	result := conn.RootController().(*Controller).Echo("Hello World")
+	result, err := conn.RootController().(*Controller).Echo("Hello World")
 
 	if result != "Hello World" {
 		t.Errorf("Result Mismatch: %v", result)
@@ -101,7 +101,7 @@ func TestRpcEcho(t *testing.T) {
 	if err == nil {
 		t.Error("Call should have returned an error.")
 	}
-	if err.Error() != "Code: -32602, Message: Invalid Params, Data: " {
+	if err.Error() != "Code: -32602, Message: Invalid Params, Data: nil" {
 		t.Errorf("Call should have returned an RpcError(Invalid Params): \"%s\"", err.Error())
 	}
 
@@ -133,6 +133,17 @@ func TestNotify(t *testing.T) {
 	if (transport.LastReceivedMessage.id != "2") || (transport.LastReceivedMessage.data != `{"jsonrpc":"2.0","method":"Echo","params":["Hello World"]}`) {
 		t.Errorf("Wrong message received: (%T)%s, %s", transport.LastReceivedMessage, transport.LastReceivedMessage.id, transport.LastReceivedMessage.data)
 	}
+
+	f := GetFactory()
+	r := f.MakeRequest(nil, "Notify", nil)
+	r.(*Request).data["jsonrpc"] = "1.0"
+	rw := f.MakeRequestWrapper()
+	rw.AddRequest(r)
+	transport.Send(conn.Destination(), rw)
+
+	time.Sleep(time.Millisecond * 10)
+
+
 	transport.quit <- true
 
 	endTest()

@@ -74,8 +74,8 @@ func TestProtocolDecode(t *testing.T) {
 
 	s := []byte(`{"id":1,"jsonrpc":"2.0","method":"Protocol.Decode","params":["Hello World"]}`)
 
-	factory := GetFactory()
-	protocol := factory.MakeProtocol()
+	f := GetFactory()
+	protocol := f.MakeProtocol()
 	
 	rw, err := protocol.Decode(s)
 	
@@ -104,6 +104,30 @@ func TestProtocolDecode(t *testing.T) {
 	}
 	if params[0] != "Hello World" {
 		t.Error("Decode result request params does not match")
+	}
+	
+	rw, err = protocol.Decode([]byte(`[{"id":1,"jsonrpc":"2.0","result":"Hello World"},{"error":{"code":-32000,"message":"Not Allowed","data":null},"id":2,"jsonrpc":"2.0"}]`))
+	if err != nil {
+		t.Errorf("Decode failed parsing batch request: (%T)%v", err, err)
+	}
+	if len(rw.GetBatchRequests()) != 2 {
+		t.Errorf("Decode result is not correct: (%T)%v", rw,rw)
+	}
+
+	rw, err = protocol.Decode([]byte(`["Hello","World"]`))
+	if err == nil {
+		t.Error("Decode should have failed parsing illegal batch request: (%T)%v", rw, rw)
+	}
+
+	rw, err = protocol.Decode([]byte(`{"id":1,"method":"Protocol.Decode","params":["Hello World"]}`))
+	iw := protocol.Parse(f.MakeConnection(f.MakeTransport(), f.MakeAddress("1", "2", nil)), rw)
+	if iw.GetRequest().IsError() == false {
+		t.Error("Request should be invalid: (%T)%v", iw,iw)
+	}
+	
+	_, err = protocol.Decode([]byte("WhaaHaHa"))
+	if err == nil {
+		t.Error("Json should be illegal")
 	}
 	endTest()
 }

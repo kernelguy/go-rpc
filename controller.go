@@ -1,6 +1,7 @@
 package gorpc
 
 import (
+	"fmt"
 	log "github.com/Sirupsen/logrus"
 )
 
@@ -28,17 +29,20 @@ type EchoParams struct {
 }
 func (this *Controller) RPC_Echo(params EchoParams) string {
 	log.Debugf("RPC Echo called with: (%T)%s", params.Value, params.Value)
+	if params.Value == "-1" {
+		panic(GetFactory().MakeRpcError(ErrInvalidParams, fmt.Errorf("Chained Error")))
+	}
 	return params.Value
 }
 
 
-func (this *Controller) Echo(value string) string {
+func (this *Controller) Echo(value string) (string, error) {
 	p := struct{Value string}{Value: value}
 	r, err := this.Connection().Call("Echo", p)
-	if err != nil {
-		return err.Error()
+	if err == nil {
+		return r.(string), nil
 	}
-	return r.(string)
+	return "", err
 }
 
 func (this *Controller) SetConnection(connection IConnection) {

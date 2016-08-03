@@ -1,7 +1,9 @@
 package gorpc
 
 import (
+	"encoding/json"
 	"fmt"
+	log "github.com/Sirupsen/logrus"
 )
 
 const ErrParseError = -32700     // An error occurred on the server while parsing the JSON text.
@@ -12,9 +14,9 @@ const ErrInternalError = -32603  // Internal error
 const ErrNotAllowed = -32000     // Not allowed custom exception
 
 type RpcError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Data    error  `json:"data"`
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data"`
 }
 
 func NewRpcError(code int, previous error) IRpcError {
@@ -51,21 +53,33 @@ func (p *RpcError) GetMessage() string {
 }
 
 func (p *RpcError) GetData() error {
-	return p.Data
+	return p.Data.(error)
+}
+
+func (p *RpcError) getDataString() interface{} {
+	if p.Data != nil {
+		return p.Data.(error).Error()
+	}
+	return nil
 }
 
 func (p *RpcError) Error() string {
-	var data interface{}
+	var s string
 	if p.Data != nil {
-		data = p.Data.Error()
+		s = p.Data.(error).Error()
 	} else {
-		data = ""
+		s = "nil"
 	}
-	return fmt.Sprintf("Code: %d, Message: %s, Data: %s", p.Code, p.Message, data)
+	return fmt.Sprintf("Code: %d, Message: %s, Data: %s", p.Code, p.Message, s)
 }
 
-//func (this *RpcError) MarshalJSON() (result []byte, err error) {
-//	result, err = json.Marshal(this.data)
-//	log.Debugf("Request Encoded: %s, %v", string(result), err)
-//	return result, err
-//}
+func (this *RpcError) MarshalJSON() (result []byte, err error) {
+	e := *this
+	
+	if e.Data != nil {
+		e.Data = e.getDataString()
+	}
+	result, err = json.Marshal(e)
+	log.Debugf("RpcError Encoded: %s, %v", string(result), err)
+	return result, err
+}

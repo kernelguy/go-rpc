@@ -29,9 +29,14 @@ func (this *Protocol) Decode(data []byte) (IRequestWrapper, error) {
 	log.Debugf("Protocol.Decode Result: %v", v)
 	if reflect.TypeOf(v).Kind() == reflect.Slice {
 		result.SetBatchRequest(true)
-		vr, _ := v.([]map[string]interface{})
+		vr, _ := v.([]interface{})
 		for i:=0 ; i < len(vr); i++ {
-			result.AddRequest(f.MakeRequest(vr[i], nil, nil))
+			m, ok := vr[i].(map[string]interface{})
+			if !ok {
+				log.Errorf("Batch element is not correct type: (%T)%v", vr[i],vr[i])
+				return nil, GetFactory().MakeRpcError(ErrParseError, nil)
+			}
+			result.AddRequest(f.MakeRequest(m, nil, nil))
 		} 
 	} else {
 		result.AddRequest(f.MakeRequest(v, nil, nil))
