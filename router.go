@@ -9,14 +9,20 @@ import (
 )
 
 type Router struct {
+	FactoryGetter
 	validate func(request IRequest)
+	cache map[string]reflect.Value
 }
 
-func (this *Router) Init(validator func(IRequest)) {
+func (this *Router) SetValidator(validator func(IRequest)) {
 	this.validate = validator
 }
 
 func (this *Router) Route(connection IConnection, request IRequestWrapper) IRequestWrapper {
+	if this.cache == nil {
+		this.cache = make(map[string]reflect.Value, 10)
+	}
+	
 	result := this.invokeBatch(connection, request.GetBatchRequests())
 
 	if result.IsEmpty() == false {
@@ -27,15 +33,15 @@ func (this *Router) Route(connection IConnection, request IRequestWrapper) IRequ
 	return nil
 }
 
-func (p *Router) invokeBatch(connection IConnection, rm []IRequest) IRequestWrapper {
-	result := GetFactory().MakeRequestWrapper()
+func (this *Router) invokeBatch(connection IConnection, rm []IRequest) IRequestWrapper {
+	result := this.Factory().MakeRequestWrapper()
 
 	for i := 0; i < len(rm); i++ {
 		if rm[i].IsRequest() {
-			r, err := p.invoke(connection, rm[i].(*Request))
+			r, err := this.invoke(connection, rm[i])
 			id := rm[i].Id()
 			if id != nil {
-				result.AddRequest(GetFactory().MakeResponse(id, r, err))
+				result.AddRequest(this.Factory().MakeResponse(id, r, err))
 			}
 			log.Debugf("Router.invokeBatch returning: %v", result)
 		} else if rm[i].IsResponse() {
@@ -49,7 +55,7 @@ func (p *Router) invokeBatch(connection IConnection, rm []IRequest) IRequestWrap
 	return result
 }
 
-func (this *Router) invoke(connection IConnection, request *Request) (response interface{}, err IRpcError) {
+func (this *Router) invoke(connection IConnection, request IRequest) (response interface{}, err IRpcError) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Debugf("Router.invoke Recovered from panic: (%T)%v", r, r)
@@ -63,15 +69,22 @@ func (this *Router) invoke(connection IConnection, request *Request) (response i
 			case error:
 				err = NewRpcError(ErrInternalError, x)
 			default:
-				err = NewRpcError(ErrInternalError, errors.New("Unknown panic"))
+				err = NewRpcError(ErrInternalError, fmt.Errorf("Unknown: (%T)%v", x,x))
 			}
 		}
 	}()
 
-	this.validate(request)
+	if this.validate != nil {
+		this.validate(request)
+	}
 	log.Debug("Router.invoke step 1")
 
-	_, method := this.getRoute(connection.RootController(), request.Method())
+	var method reflect.Value
+	method, ok := this.cache[request.Method()]
+	if !ok {
+		method = this.getRoute(connection.RootController(), request.Method())
+		this.cache[request.Method()] = method
+	}		
 	log.Debug("Router.invoke step 2")
 
 	p := this.checkParams(method, request.Params())
@@ -86,15 +99,16 @@ func (this *Router) invoke(connection IConnection, request *Request) (response i
 	return
 }
 
-func (this *Router) getRoute(obj interface{}, method string) (interface{}, reflect.Value) {
+func (this *Router) getRoute(obj interface{}, method string) reflect.Value {
 
 	path := strings.Split(method, ".")
 	v := reflect.ValueOf(obj)
 	for len(path) > 1 {
-		v = v.Elem().FieldByName(path[0]).Addr()
-		if !v.IsValid() {
+		f := v.Elem().FieldByName(path[0])
+		if !f.CanAddr() {
 			panic(NewRpcError(ErrMethodNotFound, nil))
 		}
+		v = f.Addr()
 		path = path[1:]
 	}
 	m := v.MethodByName("RPC_" + path[0])
@@ -102,12 +116,10 @@ func (this *Router) getRoute(obj interface{}, method string) (interface{}, refle
 		panic(NewRpcError(ErrMethodNotFound, nil))
 	}
 
-	return obj, m
+	return m
 }
 
 func (this *Router) checkParams(m reflect.Value, params interface{}) (result []reflect.Value) {
-
-	requiredParams := make(map[int]reflect.StructField, 10)
 
 	n := m.Type().NumIn()
 	if n == 0 {
@@ -115,16 +127,12 @@ func (this *Router) checkParams(m reflect.Value, params interface{}) (result []r
 	} else if n > 1 {
 		panic(fmt.Errorf("RPC methods should have zero or one parameter: Rpc_MyMethod(struct{a int, b string})"))
 	}
-
 	n = m.Type().In(0).NumField()
-	for i := 0; i < n; i++ {
-		requiredParams[i] = m.Type().In(0).Field(i)
-	}
 
 	if params != nil {
 		rt := m.Type().In(0)
 		rv := reflect.New(rt)
-		InitializeStruct(rt, rv.Elem())
+		InitializeStruct(rv.Interface())
 
 		v := reflect.TypeOf(params)
 		switch v.Kind() {
@@ -141,13 +149,15 @@ func (this *Router) checkParams(m reflect.Value, params interface{}) (result []r
 			if len(p) != n {
 				panic(NewRpcError(ErrInvalidParams, nil))
 			}
-			FillStructFromArray(rv.Interface(), p, requiredParams)
+			FillStructFromArray(rv.Interface(), p)
 			result = append(result, rv.Elem())
 
 		default:
 			log.Debugf("Router.checkParams Unknown parameter kind: %(T)%v", v, v)
 			panic(NewRpcError(ErrInvalidParams, nil))
 		}
+	} else if n > 0 {
+		panic(NewRpcError(ErrInvalidParams, nil))
 	}
 	log.Debugf("Router.checkParams returning %v", result)
 	return

@@ -1,41 +1,73 @@
 package gorpc
 
 import (
-    "flag"
-    "fmt"
-    "os"
-    "path"
-    "runtime"
-    "testing"
-	log "github.com/Sirupsen/logrus"
+	"fmt"
+	"github.com/kernelguy/gorpc/test"
+	"testing"
 )
 
-func file_line() string {
-    _, fileName, fileLine, ok := runtime.Caller(2)
-    var s string
-    if ok {
-        s = fmt.Sprintf("%s:%d", path.Base(fileName), fileLine)
-    } else {
-        s = ""
-    }
-    return s
+type testFactory struct {
+	Factory
 }
 
+type testController struct {
+	Controller
+}
+
+func (this *testFactory) MakeTransport(options ITransportOptions) ITransport {
+	t := &LoopbackTransport{Transport:Transport{Options: options, Protocol: this.MakeProtocol()}}
+	t.SetFactory(this)
+	t.Init(nil, nil)
+	return t
+}
+
+func (this *testFactory) MakeController() IController {
+	return &testController{}
+}
+
+
+func (this *testController) RPC_NoParams() {
+}
+
+func (this *testController) RPC_FailWithError() {
+	panic(fmt.Errorf("Chained Error"))
+}
+
+func (this *testController) RPC_FailWithRPCError() {
+	e := GetFactory().MakeRpcError(ErrInternalError, nil)
+	panic(*e.(*RpcError))
+}
+
+func (this *testController) RPC_FailWithString() {
+	panic("Chained String")
+}
+
+func (this *testController) RPC_FailWithInt() {
+	panic(0)
+}
+
+func (this *testController) RPC_IllegalParams(p1 int, p2 string, p3 float64) {
+}
+
+type TwoParams struct {
+	V1 int
+	V2 string
+}
+func (this *testController) RPC_TwoParams(params TwoParams) int {
+	return 42
+}
+
+
 func beginTest(name string) {
-	log.Infof("***** %s ***** %s", name, file_line())
+	test.Begin(name, 3)
 }
 
 func endTest() {
-	log.Info("***** End *****\n")
+	test.End()
 }
 
 func TestMain(m *testing.M) {
-	flag.Parse()
-	if testing.Verbose() {
-		log.SetLevel(log.DebugLevel)
-	}
-	log.Info("***** STARTING TEST *****")
-	r := m.Run()
-	log.Info("***** TEST FINISHED *****")
-	os.Exit(r)
+	test.Init(m)
+	SetFactory(&testFactory{})
+	test.Run(m)
 }

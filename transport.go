@@ -11,40 +11,40 @@ type TransportOptions struct {
 
 
 type Transport struct {
+	FactoryGetter
+	Options ITransportOptions
 	connections map[string]IConnection
-	protocol IProtocol
+	Protocol IProtocol
 	onReceive func(id, message string)
 	onWrite func(id, message string)
 }
 
-
 func (this *Transport) Init(onReceive, onWrite func(id, message string)) {
-	this.protocol = GetFactory().MakeProtocol()
-
 	if onReceive != nil {
 		this.onReceive = onReceive
-	}
+	} else {
+		this.onReceive = this.defaultReceive
+	} 
+	
 	if onWrite != nil {
 		this.onWrite = onWrite
+	} else {
+		this.onWrite = this.defaultWrite
 	}
 }
 
 
-func (p *Transport) Serve(options ITransportOptions) {
-	
-}
-
-func (p *Transport) Connect(options ITransportOptions) {
+func (p *Transport) Start() {
 	
 }
 
 func (p *Transport) Send(id string, rw IRequestWrapper) error {
 	log.Debugf("Transport.Send(%s, %v)", id, rw)
-	message, err := p.protocol.Encode(rw)
+	message, err := p.Protocol.Encode(rw)
 	if err != nil {
 		return err
 	}
-	p.Write(id, string(message))
+	p.write(id, string(message))
 	return nil
 }
 
@@ -79,38 +79,41 @@ func (p *Transport) getConnection(id string) (IConnection, error) {
 	return c, nil
 }
 
-func (this *Transport) Receive(id, message string) {
-	if this.onReceive == nil {
-		this.onReceive = func(id, message string) {
-			log.Debugf("Transport.Receive(%s, %s)", id, message)
-			c, err := this.getConnection(id)
-			if err != nil {
-				// We should never get here...
-				return
-			}
-			rw, err := this.protocol.Decode([]byte(message))
-			if err != nil {
-				// We cannot return an ErrParseError, since we could not decode the request we have no id 
-				return
-			}
-			go func () {
-				response := this.protocol.Parse(c, rw)
-				if response != nil {
-					this.Send(c.Destination(), response)
-				}
-			}()
-		}
+func (this *Transport) defaultReceive(id, message string) {
+	log.Debugf("Transport.defaultReceive(%s, %s)", id, message)
+	c, err := this.getConnection(id)
+	//log.Debug("step 1")
+	if err != nil {
+		log.Debug("No connection for received message. Aborting...")
+		return
 	}
+	//log.Debug("step 2")
+	rw, err := this.Protocol.Decode([]byte(message))
+	//log.Debug("step 3")
+	if err != nil {
+		log.Debug("Incoming message could not decode. Aborting...")
+		// We cannot return an ErrParseError, since we could not decode the request we have no id 
+		return
+	}
+	//log.Debug("step 4")
+	go func () {
+		response := this.Protocol.Parse(c, rw)
+		if response != nil {
+			this.Send(c.Destination(), response)
+		}
+	}()
+}
+
+func (this *Transport) defaultWrite(id, message string) {
+	log.Debugf("Transport.defaultWrite(%s, %s)", id, message)
+	// Doing nothing here...
+}
+
+
+func (this *Transport) Receive(id, message string) {
 	this.onReceive(id, message)
 }
 
-func (this *Transport) Write(id, message string) {
-	if this.onWrite == nil {
-		this.onWrite = func(id, message string) {
-			log.Debugf("Transport.Write(%s, %s)", id, message)
-			// Doing nothing here...
-		}
-	}
+func (this *Transport) write(id, message string) {
 	this.onWrite(id, message)
 }
-

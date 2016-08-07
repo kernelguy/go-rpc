@@ -33,12 +33,12 @@ func (this *RpcController) RPC_NotifyTest(params funcParams) {
 func TestController(t *testing.T) {
 	beginTest("TestController")
 
-	transport := &LoopbackTransport{}
-	transport.init()
-	transport.run()
+	f := GetFactory()
+	transport := f.MakeTransport(nil).(*LoopbackTransport)
+	transport.Start()
 
-	transport.addConnection(GetFactory().MakeAddress("1", "2", nil))
-	transport.addConnection(GetFactory().MakeAddress("2", "1", nil))
+	transport.addConnection(f.MakeAddress("1", "2", nil))
+	transport.addConnection(f.MakeAddress("2", "1", nil))
 
 	conn1, _ := transport.getConnection("1")
 	conn1.SetRootController(&MyRootController{})
@@ -63,12 +63,12 @@ func TestController(t *testing.T) {
 func TestAdvancedParams(t *testing.T) {
 	beginTest("TestAdvancedParams")
 
-	transport := &LoopbackTransport{}
-	transport.init()
-	transport.run()
+	f := GetFactory()
+	transport := f.MakeTransport(nil).(*LoopbackTransport)
+	transport.Start()
 
-	transport.addConnection(GetFactory().MakeAddress("1", "2", nil))
-	transport.addConnection(GetFactory().MakeAddress("2", "1", nil))
+	transport.addConnection(f.MakeAddress("1", "2", nil))
+	transport.addConnection(f.MakeAddress("2", "1", nil))
 
 	conn1, _ := transport.getConnection("1")
 	conn1.SetRootController(&MyRootController{})
@@ -92,46 +92,18 @@ func TestAdvancedParams(t *testing.T) {
 }
 
 
-func TestErrorResponse(t *testing.T) {
-	beginTest("TestErrorResponse")
-
-	transport := &LoopbackTransport{}
-	transport.init()
-	transport.run()
-
-	transport.addConnection(GetFactory().MakeAddress("1", "2", nil))
-	transport.addConnection(GetFactory().MakeAddress("2", "1", nil))
-
-	conn1, _ := transport.getConnection("1")
-
-	r, err := conn1.RootController().(*Controller).Echo("-1")
-
-	if err == nil {
-		t.Errorf("Response should be an error: (%T)%v", r, r) 
-	} else if err.Error() != "Code: -32602, Message: Invalid Params, Data: Chained Error" {
-		t.Errorf("Response was not the correct error: (%T)%v", err, err) 
-	}
-
-	transport.quit <- true
-
-	endTest()
-}
-
-
 func TestClose(t *testing.T) {
 	beginTest("TestRpcEcho")
 
 	f := GetFactory()
-	SetFactory(f)
-	
-	options := GetFactory().MakeTransportOptions()
+	options := f.MakeTransportOptions()
 	if _, ok := options.(ITransportOptions); !ok {
 		t.Errorf("options should be of type ITransportOption, not (%T)%v", options, options)
 	}
 	
-	transport := GetFactory().MakeTransport().(*Transport)
+	transport := f.MakeTransport(options).(*LoopbackTransport)
 
-	transport.addConnection(GetFactory().MakeAddress("1", "2", nil))
+	transport.addConnection(f.MakeAddress("1", "2", nil))
 
 	conn, _ := transport.getConnection("1")
 	if len(transport.connections) != 1 {

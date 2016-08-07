@@ -1,0 +1,17 @@
+mode: set
+github.com/kernelguy/gorpc/jsonrpc2/factory.go:12.53,16.2 3 1
+github.com/kernelguy/gorpc/jsonrpc2/factory.go:18.81,20.46 2 1
+github.com/kernelguy/gorpc/jsonrpc2/factory.go:25.2,25.10 1 1
+github.com/kernelguy/gorpc/jsonrpc2/factory.go:20.46,22.3 1 1
+github.com/kernelguy/gorpc/jsonrpc2/factory.go:22.3,24.3 1 1
+github.com/kernelguy/gorpc/jsonrpc2/factory.go:28.81,32.2 3 1
+github.com/kernelguy/gorpc/jsonrpc2/protocol.go:12.112,15.2 2 1
+github.com/kernelguy/gorpc/jsonrpc2/protocol.go:17.50,19.9 2 1
+github.com/kernelguy/gorpc/jsonrpc2/protocol.go:22.2,22.29 1 1
+github.com/kernelguy/gorpc/jsonrpc2/protocol.go:19.9,20.113 1 1
+github.com/kernelguy/gorpc/jsonrpc2/protocol.go:22.29,23.106 1 1
+github.com/kernelguy/gorpc/jsonrpc2/request.go:13.65,16.2 2 1
+github.com/kernelguy/gorpc/jsonrpc2/request.go:18.65,21.2 2 1
+github.com/kernelguy/gorpc/jsonrpc2/request.go:23.39,24.47 1 1
+github.com/kernelguy/gorpc/jsonrpc2/request.go:27.2,27.11 1 1
+github.com/kernelguy/gorpc/jsonrpc2/request.go:24.47,26.3 1 1

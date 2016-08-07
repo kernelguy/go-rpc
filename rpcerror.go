@@ -53,12 +53,8 @@ func (p *RpcError) GetMessage() string {
 }
 
 func (p *RpcError) GetData() error {
-	return p.Data.(error)
-}
-
-func (p *RpcError) getDataString() interface{} {
 	if p.Data != nil {
-		return p.Data.(error).Error()
+		return p.Data.(error)
 	}
 	return nil
 }
@@ -77,7 +73,7 @@ func (this *RpcError) MarshalJSON() (result []byte, err error) {
 	e := *this
 	
 	if e.Data != nil {
-		e.Data = e.getDataString()
+		e.Data = e.Data.(error).Error()
 	}
 	result, err = json.Marshal(e)
 	log.Debugf("RpcError Encoded: %s, %v", string(result), err)

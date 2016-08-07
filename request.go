@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
+	"sort"
 )
 
 
@@ -12,17 +13,37 @@ type Request struct {
 	data map[string]interface{}
 }
 
+type __notSet__ struct {
+}
 
 func (this *Request) IsError() bool {
-	return (this.Error() != nil)
+	if this.data == nil {
+		return false
+	}
+	if _, ok := this.data["error"]; ok {
+		return true
+	}
+	return false
 }
 
 func (this *Request) IsRequest() bool {
-	return (this.Error() == nil) && (this.Result() == nil)
+	if this.data == nil {
+		return false
+	}
+	if _, ok := this.data["method"]; ok {
+		return true
+	}
+	return false
 }
 
 func (this *Request) IsResponse() bool {
-	return (this.Result() != nil)
+	if this.data == nil {
+		return false
+	}
+	if _, ok := this.data["result"]; ok {
+		return true
+	}
+	return false
 }
 
 func (this *Request) Populate(vr map[string]interface{}) {
@@ -51,8 +72,7 @@ func (this *Request) SetRequest(id, method, params interface{}) {
 	if params != nil {
 		this.data["params"] = params
 	}
-	this.data["jsonrpc"] = "2.0"
-	log.Debugf("Request created: %v", this.data)
+	log.Debugf("Request.SetRequest result: %v", this.data)
 }
 
 func (this *Request) SetResponse(id, result, error interface{}) {
@@ -63,58 +83,60 @@ func (this *Request) SetResponse(id, result, error interface{}) {
 	} else {
 		this.data["result"] = result
 	}
-	this.data["jsonrpc"] = "2.0"
-	log.Debugf("Request.CreateResponse result: %v", this.data)
+	log.Debugf("Request.SetResponse result: %v", this.data)
+}
+
+func (this *Request) Set(name string, value interface{}) {
+	if this.data != nil {
+		this.data[name] = value
+	}
+}
+
+func (this *Request) Get(name string) interface{} {
+	if this.data == nil {
+		return nil
+	}
+	return this.data[name]
 }
 
 func (this *Request) Id() interface{} {
-	if this.data == nil {
-		return nil
-	}
-	return this.data["id"]
+	return this.Get("id")
 }
 
 func (this *Request) Method() string {
-	if this.data == nil {
-		return ""
+	if v, ok := this.Get("method").(string); ok {
+		return v
 	}
-	return this.data["method"].(string)
+	return ""
 }
 
 func (this *Request) Params() interface{} {
-	if this.data == nil {
-		return nil
-	}
-	return this.data["params"]
+	return this.Get("params")
 }
 
 func (this *Request) Result() interface{} {
-	if this.data == nil {
-		return nil
-	}
-	return this.data["result"]
+	return this.Get("result")
 }
 
 func (this *Request) Error() interface{} {
-	if this.data == nil {
-		return nil
-	}
-	return this.data["error"]
-}
-
-func (this *Request) JsonRPC() string {
-	if this.data == nil {
-		return ""
-	}
-	return this.data["jsonrpc"].(string)
+	return this.Get("error")
 }
 
 func (this *Request) String() string {
 	s := "Request{data:"
 	sep := ""
 	if this.data != nil {
+		idx := make([]string, len(this.data))
+		i := 0;
+		for k, _ := range this.data {
+			idx[i] = k
+			i++
+		}
+		sort.Strings(idx)
+
 		s = s + "{"
-		for k, v := range this.data {
+		for _, k := range idx {
+			v := this.data[k]
 			switch v.(type) {
 				case nil:
 					s = fmt.Sprintf("%s%s%s:nil", s, sep, k)

@@ -3,12 +3,13 @@ package gorpc
 import (
 	"encoding/json"
 	"reflect"
-	"fmt"
 	log "github.com/Sirupsen/logrus"
 )
 
 type Protocol struct {
+	FactoryGetter
 	router IRouter
+	validator func(r IRequest)
 }
 
 
@@ -24,7 +25,7 @@ func (this *Protocol) Decode(data []byte) (IRequestWrapper, error) {
 	if err != nil {
 		return nil, err
 	}
-	f := GetFactory()
+	f := this.Factory()
 	result := f.MakeRequestWrapper()
 	log.Debugf("Protocol.Decode Result: %v", v)
 	if reflect.TypeOf(v).Kind() == reflect.Slice {
@@ -34,7 +35,7 @@ func (this *Protocol) Decode(data []byte) (IRequestWrapper, error) {
 			m, ok := vr[i].(map[string]interface{})
 			if !ok {
 				log.Errorf("Batch element is not correct type: (%T)%v", vr[i],vr[i])
-				return nil, GetFactory().MakeRpcError(ErrParseError, nil)
+				return nil, this.Factory().MakeRpcError(ErrParseError, nil)
 			}
 			result.AddRequest(f.MakeRequest(m, nil, nil))
 		} 
@@ -47,20 +48,12 @@ func (this *Protocol) Decode(data []byte) (IRequestWrapper, error) {
 func (this *Protocol) Parse(connection IConnection, request IRequestWrapper) IRequestWrapper {
 	
 	if this.router == nil {
-		this.router = GetFactory().MakeRouter()
-		this.router.Init(this.validate)
+		this.router = this.Factory().MakeRouter(this.validator)
 	}
 
 	return this.router.Route(connection, request)	
 }
 
-
-func (this *Protocol) validate(r IRequest) {
-	json, ok := r.(IJsonRPC2Request)
-	if !ok {
-		panic(GetFactory().MakeRpcError(ErrInvalidRequest, fmt.Errorf("Jsonrpc property does not exist")))
-	}
-	if json.JsonRPC() != "2.0" {
-		panic(GetFactory().MakeRpcError(ErrInvalidRequest, fmt.Errorf("Jsonrpc version mismatch")))
-	}
+func (this *Protocol) SetValidate(f func(r IRequest)) {
+	this.validator = f
 }

@@ -16,11 +16,20 @@ type LoopbackTransport struct {
 	LastReceivedMessage Message
 }
 
-func (this *LoopbackTransport) init() {
-	this.Transport.Init(nil, this.Write)
+func (this *LoopbackTransport) Init(onReceive, onWrite func(id, message string)) {
+	this.Transport.Init(onReceive, this.write)
 }
 
-func (this *LoopbackTransport) run() {
+func (this *LoopbackTransport) CreateTestConnections() IConnection {
+	this.addConnection(this.Factory().MakeAddress("1", "2", nil))
+	this.addConnection(this.Factory().MakeAddress("2", "1", nil))
+
+	conn, _ := this.getConnection("2")
+	return conn
+}
+
+
+func (this *LoopbackTransport) Start() {
 	this.wire = make(chan Message)
 	this.quit = make(chan bool)
 
@@ -37,13 +46,15 @@ func (this *LoopbackTransport) run() {
 			}
 		}
 	}()
-
 }
 
-func (this *LoopbackTransport) Write(id, message string) {
+func (this *LoopbackTransport) Stop() {
+	this.quit <- true
+}
+
+func (this *LoopbackTransport) write(id, message string) {
 	go func() {
 		log.Debugf("LoopbackTransport.Write(%s, %s)", id, message)
-		out := Message{id: id, data: message}
-		this.wire <- out
+		this.wire <- Message{id: id, data: message}
 	}()
 }

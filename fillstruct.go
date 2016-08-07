@@ -6,7 +6,12 @@ import (
 	"reflect"
 )
 
-func InitializeStruct(t reflect.Type, v reflect.Value) {
+func InitializeStruct(s interface{}) {
+	log.Debugf("Init Struct: (%T)%v", s,s)
+
+	v := reflect.ValueOf(s).Elem()
+	t := v.Type()
+
 	for i := 0; i < v.NumField(); i++ {
 		f := v.Field(i)
 		ft := t.Field(i)
@@ -18,67 +23,93 @@ func InitializeStruct(t reflect.Type, v reflect.Value) {
 		case reflect.Chan:
 			f.Set(reflect.MakeChan(ft.Type, 0))
 		case reflect.Struct:
-			InitializeStruct(ft.Type, f)
+			InitializeStruct(f.Addr().Interface())
 		case reflect.Ptr:
 			fv := reflect.New(ft.Type.Elem())
-			InitializeStruct(ft.Type.Elem(), fv.Elem())
+			InitializeStruct(fv.Interface())
 			f.Set(fv)
 		default:
 		}
 	}
 }
 
-func setField(obj interface{}, name string, value interface{}) error {
-	log.Debugf("obj: (%T)%v", obj, obj)
+func mapCopy(dst, src interface{}) {
+	//log.Debugf("mapCopy: (%T)%v => (%T)%v", src,src, dst,dst)
+    dv, sv := reflect.ValueOf(dst), reflect.ValueOf(src)
+
+    for _, k := range sv.MapKeys() {
+        dv.SetMapIndex(k, sv.MapIndex(k))
+    }
+}
+
+func setField(obj interface{}, n interface{}, value interface{}) error {
+	//log.Debugf("obj: (%T)%v", obj, obj)
 	structValue := reflect.ValueOf(obj).Elem()
-	structFieldValue := structValue.FieldByName(name)
+	var structFieldValue reflect.Value
+	if name, ok := n.(string); ok {
+		structFieldValue = structValue.FieldByName(name)
+	} else {
+		structFieldValue = structValue.Field(n.(int))
+	}
 
 	if !structFieldValue.IsValid() {
-		return fmt.Errorf("No such field: %s in obj", name)
+		return fmt.Errorf("No such field: %v in obj", n)
 	}
 
 	if !structFieldValue.CanSet() {
-		return fmt.Errorf("Cannot set %s field value", name)
+		return fmt.Errorf("Cannot set %v field value", n)
 	}
 
 	structFieldType := structFieldValue.Type()
-	val := reflect.ValueOf(value)
-	if val.Type().Kind() == reflect.Map {
-		err := FillStructFromMap(structFieldValue.Addr().Interface(), val.Interface().(map[string]interface{}))
-		if err != nil {
-			return err
-		}
+	//log.Debugf("setField: (%T)%v to (%T)%v", structFieldValue.Interface(), structFieldValue, value, value)
+
+	if structFieldType.Kind() == reflect.Map {
+		mapCopy(structFieldValue.Interface(), value)
 		return nil
 	}
 
-	log.Debugf("Setting Value (%T)%v to (%T)%v", structFieldValue.Interface(), structFieldValue, val.Interface(), val)
-	structFieldValue.Set(val.Convert(structFieldType))
+	val := reflect.ValueOf(value)
+	if value != nil {
+		if val.Type().Kind() == reflect.Map {
+			
+			if structFieldType.Kind() == reflect.Ptr {
+				structFieldValue = structFieldValue.Elem()
+			}
+			err := FillStructFromMap(structFieldValue.Addr().Interface(), val.Interface().(map[string]interface{}))
+			return err
+		}
+		//log.Debugf("Setting Value (%T)%v to (%T)%v", structFieldValue.Interface(), structFieldValue, val.Interface(), val)
+		structFieldValue.Set(val.Convert(structFieldType))
+	} else {
+		structFieldValue.Set(reflect.Zero(structFieldType))
+	}
+
 	return nil
 }
 
 func FillStructFromMap(s interface{}, m map[string]interface{}) error {
-	log.Debugf("Traverse into (%T)%v filling with (%T)%v", s,s, m, m)
+	log.Debugf("Traverse into (%T)%v filling with (%T)%v", s,s, m,m)
 	for k, v := range m {
 		err := setField(s, k, v)
 		if err != nil {
-			log.Debugf("FillStruct.Error((%T)%v)", err, err)
+			log.Debugf("FillStructFromMap.Error((%T)%v)", err,err)
 			return err
 		}
 	}
-	log.Debugf("Traverse result (%T)%v", s,s)
+	//log.Debugf("Traverse result (%T)%v", s,s)
 	return nil
 }
 
-func FillStructFromArray(s interface{}, m []interface{}, t map[int]reflect.StructField) error {
+func FillStructFromArray(s interface{}, m []interface{}) error {
 	log.Debugf("Traverse into (%T)%v filling with (%T)%v", s,s, m, m)
 	for i:=0; i < len(m); i++ {
-		err := setField(s, t[i].Name, m[i])
+		err := setField(s, i, m[i])
 		if err != nil {
-			log.Debugf("FillStruct.Error((%T)%v)", err, err)
+			log.Debugf("FillStructFromArray.Error((%T)%v)", err, err)
 			return err
 		}
 	}
-	log.Debugf("Traverse result (%T)%v", s,s)
+	//log.Debugf("Traverse result (%T)%v", s,s)
 	return nil
 }
 

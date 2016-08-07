@@ -2,7 +2,6 @@ package gorpc
 
 import (
 	"testing"
-	"time"
 )
 
 func TestGetConnections(t *testing.T) {
@@ -10,7 +9,7 @@ func TestGetConnections(t *testing.T) {
 
 	transport := &Transport{}
 
-	_, err := transport.getConnection("1")
+	c, err := transport.getConnection("1")
 	if err == nil {
 		t.Error("We should have got an error")
 	} else if err.Error() != "No connections found (1)" {
@@ -19,22 +18,38 @@ func TestGetConnections(t *testing.T) {
 
 	transport.addConnection(GetFactory().MakeAddress("1", "2", nil))
 
-	c, err2 := transport.getConnection("1")
-	if err2 != nil {
+	c, err = transport.getConnection("1")
+	if err != nil {
 		t.Error("We should not have got an error!")
 	} else if c.Source() != "1" {
 		t.Errorf("Connection.Source does not match: %s", c.Source())
 	}
+
+	_, err = transport.getConnection("2")
+	if err == nil {
+		t.Error("We should have got an error")
+	} else if err.Error() != "Connection 2 not found" {
+		t.Errorf("Error message does not match: %v", err)
+	}
+
 	endTest()
 }
 
 func TestAddConnections(t *testing.T) {
 	beginTest("TestAddConnections")
 
+	f := GetFactory()
 	transport := &Transport{}
+	transport.SetFactory(f)
+	transport.Init(nil, nil)
 
-	transport.addConnection(GetFactory().MakeAddress("1", "2", nil))
-	transport.addConnection(GetFactory().MakeAddress("2", "1", nil))
+	addr := f.MakeAddress("", "", nil)
+	addr.SetAddress("1", "2", "yes")
+	if addr.Options().(string) != "yes" {
+		t.Errorf("Options are wrong: %v", addr.Options())
+	}
+	transport.addConnection(addr)
+	transport.addConnection(f.MakeAddress("2", "1", nil))
 
 	connection, err := transport.getConnection("1")
 	if err != nil {
@@ -67,84 +82,32 @@ func TestAddConnections(t *testing.T) {
 	if len(transport.connections) != 0 {
 		t.Fatal("Connections count should be zero!")
 	}
+	
 	endTest()
 }
 
-func TestRpcEcho(t *testing.T) {
-	beginTest("TestRpcEcho")
-
-	transport := &LoopbackTransport{}
-	transport.init()
-	transport.run()
-
-	transport.addConnection(GetFactory().MakeAddress("1", "2", nil))
-	transport.addConnection(GetFactory().MakeAddress("2", "1", nil))
-
-	conn, _ := transport.getConnection("2")
-
-	result, err := conn.RootController().(*Controller).Echo("Hello World")
-
-	if result != "Hello World" {
-		t.Errorf("Result Mismatch: %v", result)
-	}
-
-	r, err := conn.Call("Echo", []interface{}{"Hello World"})
-	if err != nil {
-		r = err.Error()
-	}
-
-	if r.(string) != "Hello World" {
-		t.Errorf("Result Mismatch: %v", r)
-	}
-
-	r, err = conn.Call("Echo", "Hello World")
-	if err == nil {
-		t.Error("Call should have returned an error.")
-	}
-	if err.Error() != "Code: -32602, Message: Invalid Params, Data: nil" {
-		t.Errorf("Call should have returned an RpcError(Invalid Params): \"%s\"", err.Error())
-	}
-
-	transport.quit <- true
-
-	endTest()
-}
-
-func TestNotify(t *testing.T) {
-	beginTest("TestNotify")
-
-	transport := &LoopbackTransport{}
-	transport.init()
-	transport.run()
-
-	transport.addConnection(GetFactory().MakeAddress("1", "2", nil))
-	transport.addConnection(GetFactory().MakeAddress("2", "1", nil))
-
-	conn, _ := transport.getConnection("1")
-
-	conn.Notify("Echo", []interface{}{"Hello World"})
-
-	if len(conn.(*Connection).pendingRequests) > 0 {
-		t.Error("There is more that zero pending requests.")
-	}
-
-	time.Sleep(time.Millisecond * 10)
-
-	if (transport.LastReceivedMessage.id != "2") || (transport.LastReceivedMessage.data != `{"jsonrpc":"2.0","method":"Echo","params":["Hello World"]}`) {
-		t.Errorf("Wrong message received: (%T)%s, %s", transport.LastReceivedMessage, transport.LastReceivedMessage.id, transport.LastReceivedMessage.data)
-	}
+func TestReceive(t *testing.T) {
+	beginTest("TestReceive")
 
 	f := GetFactory()
-	r := f.MakeRequest(nil, "Notify", nil)
-	r.(*Request).data["jsonrpc"] = "1.0"
-	rw := f.MakeRequestWrapper()
-	rw.AddRequest(r)
-	transport.Send(conn.Destination(), rw)
+	transport := &Transport{Protocol: f.MakeProtocol()}
+	transport.SetFactory(f)
+	transport.Init(nil, nil)
 
-	time.Sleep(time.Millisecond * 10)
+	transport.addConnection(f.MakeAddress("1", "2", nil))
+	transport.addConnection(f.MakeAddress("2", "1", nil))
 
-
-	transport.quit <- true
-
+	iw := f.MakeRequestWrapper()
+	err := transport.Send("1", iw)
+	if err == nil {
+		t.Error("We should have got an error.")
+	}
+	
+	// Calls with no check, simply go get code coverage	
+	transport.Receive("1","Hello")
+	transport.Receive("3", "Hello")
+	transport.write("1","Hello")
+	
 	endTest()
 }
+
