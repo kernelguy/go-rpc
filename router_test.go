@@ -45,16 +45,19 @@ func TestIllegalParams(t *testing.T) {
 
 	conn := transport.CreateTestConnections()
 
-	_, err := conn.Call("IllegalParams", []interface{}{"Hello World"})
+	r, err := conn.Call("IllegalParams", []interface{}{"Hello World"})
 	if err == nil {
 		t.Errorf("Call should have failed.")
 	} else if err.(IRpcError).GetCode() != ErrInternalError {
 		t.Errorf("Error is wrong: (%T)%v", err, err)
 	} 
 
-	_, err = conn.Call("NoParams", nil)
+	r, err = conn.Call("NoParams", nil)
 	if err != nil {
 		t.Errorf("Call to NoParams failed: (%T)%v", err, err)
+	}
+	if r != nil {
+		t.Errorf("Call to NoParams should return nil: (%T)%v", r, r)
 	}
 
 	_, err = conn.Call("Echo", nil)
@@ -64,7 +67,7 @@ func TestIllegalParams(t *testing.T) {
 		t.Errorf("Error is wrong: (%T)%v", err, err)
 	} 
 
-	r, _ := conn.Call("TwoParams", []interface{}{1, "Hello"})
+	r, _ = conn.Call("TwoParams", []interface{}{1, "Hello"})
 	if r.(float64) != 42 {
 		t.Errorf("TwoParams result is wrong: (%T)%v", r, r)
 	}
@@ -166,7 +169,7 @@ func TestRpcEcho(t *testing.T) {
 	if err == nil {
 		t.Error("Call should have returned an error.")
 	}
-	if err.Error() != "Code: -32602, Message: Invalid Params, Data: nil" {
+	if err.Error() != "Code: -32602, Message: Invalid Params, Data: Unknown parameter type: (*reflect.rtype)string" {
 		t.Errorf("Call should have returned an RpcError(Invalid Params): \"%s\"", err.Error())
 	}
 

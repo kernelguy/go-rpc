@@ -17,8 +17,6 @@ func (this *testFactory) MakeTransport(options gorpc.ITransportOptions) gorpc.IT
 }
 
 func BenchmarkRpcEcho(b *testing.B) {
-//	beginTest("BenchmarkRpcEcho")
-
 	gorpc.SetFactory(&testFactory{})
 	
 	f := gorpc.GetFactory()
@@ -45,6 +43,4 @@ func BenchmarkRpcEcho(b *testing.B) {
 	}
 
 	transport.Stop()
-
-//	endTest()
 }

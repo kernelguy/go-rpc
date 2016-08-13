@@ -3,6 +3,7 @@
 package gorpc
 
 import (
+	"reflect"
 )
 
 // Interfaces used in the gorpc package.
@@ -22,7 +23,7 @@ type IFactory interface {
 	MakeRequest(id, method, params interface{}) IRequest
 	MakeRequestWrapper() IRequestWrapper
 	MakeResponse(id, result, error interface{}) IRequest
-	MakeRouter(validator func(request IRequest)) IRouter
+	MakeRouter() IRouter
 	MakeRpcError(code int, previous error) IRpcError
 	MakeTransport(ITransportOptions) ITransport
 	MakeTransportOptions() ITransportOptions
@@ -66,6 +67,7 @@ type IConnection interface {
 	Response(id interface{}, result interface{})
 	RootController() IController
 	SetRootController(obj IController)
+	Invoke(request IRequest) interface{}
 }
 
 type IController interface {
@@ -84,8 +86,8 @@ type IProtocol interface {
 
 type IRouter interface {
 	IFactoryGetter
-	SetValidator(validator func(IRequest))
-	Route(connection IConnection, request IRequestWrapper) IRequestWrapper
+	GetRoute(obj interface{}, method string) reflect.Value
+	CheckParams(m reflect.Value, params interface{}) []reflect.Value
 }
 
 

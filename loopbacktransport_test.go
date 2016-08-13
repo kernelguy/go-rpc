@@ -48,3 +48,30 @@ func TestLoopbackTransport(t *testing.T) {
 	endTest()
 }
 
+func emptyReceive(id, message string) {
+	
+}
+
+func BenchmarkTransport(b *testing.B) {
+	var count int = 0
+	f := GetFactory()
+	transport := f.MakeTransport(nil).(*LoopbackTransport)
+	transport.Init(func(id, message string) {
+		count--
+	}, nil)
+	transport.Start()
+
+	b.ResetTimer()
+	
+	for i:=0; i < b.N; i++ {
+		count++
+		transport.write("Id", "Message");
+	}
+
+	transport.quit <- true
+
+	if count != 0 {
+		b.Errorf("Count should be zero: %v", count)
+	}
+}
+

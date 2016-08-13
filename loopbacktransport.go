@@ -53,8 +53,6 @@ func (this *LoopbackTransport) Stop() {
 }
 
 func (this *LoopbackTransport) write(id, message string) {
-	go func() {
-		log.Debugf("LoopbackTransport.Write(%s, %s)", id, message)
-		this.wire <- Message{id: id, data: message}
-	}()
+	log.Debugf("LoopbackTransport.Write(%s, %s)", id, message)
+	this.wire <- Message{id: id, data: message}
 }

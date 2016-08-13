@@ -11,6 +11,7 @@ type Connection struct {
 	ConnectionAddress
 	transport ITransport
 	pendingRequests map[uint32]chan interface{}
+	router IRouter
 	rootController IController
 }
 
@@ -68,6 +69,7 @@ func (this *Connection) Response(id interface{}, result interface{}) {
 	var i uint32
 	v := reflect.ValueOf(id).Convert(reflect.TypeOf(i))
 	i = v.Interface().(uint32)
+//	i := uint32(id.(float64))
 	ch, ok := this.pendingRequests[i]
 	if ok  {
 		ch<- result
@@ -86,3 +88,22 @@ func (this *Connection) SetRootController(obj IController) {
 	this.rootController = obj
 }
 
+func (this *Connection) Invoke(request IRequest) interface{} {
+
+	if this.router == nil {
+		this.router = this.Factory().MakeRouter()
+	}
+	log.Debug("Connection.invoke step 1")
+	method := this.router.GetRoute(this.RootController(), request.Method())
+
+	log.Debug("Connection.invoke step 2")
+	p := this.router.CheckParams(method, request.Params())
+
+	log.Debug("Connection.invoke step 3")
+	r := method.Call(p)
+
+	if len(r) > 0 {
+		return r[0].Interface()
+	}
+	return nil
+}

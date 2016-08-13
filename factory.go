@@ -71,10 +71,9 @@ func (this *Factory) MakeResponse(id, result, error interface{}) IRequest {
 	Make a router takes a protocol validation function as an argument. 
 	The validator can be nill if not needed.
 */
-func (this *Factory) MakeRouter(validator func(request IRequest)) IRouter {
+func (this *Factory) MakeRouter() IRouter {
 	r := &Router{}
 	r.SetFactory(this)
-	r.SetValidator(validator)
 	return r
 }
 
