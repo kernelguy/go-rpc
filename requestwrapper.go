@@ -21,6 +21,7 @@ func (this *RequestWrapper) AddRequest(request IRequest) IRequestWrapper {
 
 func (this *RequestWrapper) Clear() IRequestWrapper {
 	this.requests = make([]IRequest, 0)
+	this.isBatch = false
 	return this
 }
 

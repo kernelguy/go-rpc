@@ -71,6 +71,10 @@ func TestUninitialized(t *testing.T) {
 	
 	r := &Request{}
 
+	if r.GetData() != nil {
+		t.Error("Request.data should be nil")
+	}
+	
 	if r.IsError() {
 		t.Error("Request should not be an error")
 	}
@@ -114,5 +118,13 @@ func TestUninitialized(t *testing.T) {
 	s = r.String()
 	if s != `Request{data:{error:(*gorpc.RpcError)Code: -32600, Message: Invalid Request, Data: Embedded Error, id:1}}` {
  		t.Errorf("Request does not contain an error: %s", s)
+	}
+	
+	m := make(map[string]interface{})
+	m["id"] = 666
+	m["method"] = "diablo"
+	ir := GetFactory().MakeRequest(m, nil, nil)
+	if ir.Id() != 666 {
+		t.Error("Id should be 666")
 	}
 }

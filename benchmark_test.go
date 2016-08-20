@@ -30,7 +30,7 @@ func BenchmarkRpcEcho(b *testing.B) {
 		b.Errorf("Result Mismatch: %v", r)
 	}
 
-	transport.quit <- true
+	transport.Stop()
 }
 
 func BenchmarkRpcNoParams(b *testing.B) {

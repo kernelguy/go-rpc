@@ -122,6 +122,10 @@ func (this *Request) Error() interface{} {
 	return this.Get("error")
 }
 
+func (this *Request) GetData() map[string]interface{} {
+	return this.data
+}
+
 func (this *Request) String() string {
 	s := "Request{data:"
 	sep := ""
