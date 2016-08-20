@@ -162,7 +162,25 @@ func TestProtocolDecode(t *testing.T) {
 	if err == nil {
 		t.Errorf("Decode should fail: (%T)%v", rw, rw)
 	}
-	
+
+
+	bin := []uint8 {1,2,3,4,5}
+	rw = f.MakeRequestWrapper()
+	rw.AddRequest(f.MakeRequest(1, "Protocol.Decode", []interface{}{bin}))
+	s, err = protocol.Encode(rw)
+	iw, err = protocol.Decode(s)
+
+	d, ok := iw.GetRequest().Params().([]interface{})
+	if !ok {
+		t.Errorf("Parameter is wrong: (%T)%v", iw, iw)
+	} else {	
+		p := d[0].([]uint8)
+		if !ok {
+			t.Errorf("Parameter is not uint8: (%T)%v", iw, iw)
+		} else if p[4] != 5 {
+			t.Errorf("Parameter shoult be array of uint8: (%T)%v", p, p)
+		}
+	}	
 	endTest()
 }
 

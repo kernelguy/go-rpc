@@ -1,6 +1,7 @@
 package msgpack
 
 import (
+	"bytes"
     "testing"
     "github.com/kernelguy/gorpc"
 )
@@ -25,12 +26,12 @@ func BenchmarkRpcEcho(b *testing.B) {
 
 	conn := transport.CreateTestConnections()
 
-	r, err := conn.Call("Echo", []interface{}{"Hello World"})
+	r, err := conn.Call("Echo", []interface{}{[]byte{1,2,3,4,5}})
 
 	b.ResetTimer()
 
 	for i:=0; i < b.N; i++ {
-		r, err = conn.Call("Echo", []interface{}{"Hello World"})
+		r, err = conn.Call("Echo", []interface{}{[]byte{1,2,3,4,5}})
 		if err != nil {
 			break
 		}
@@ -38,7 +39,7 @@ func BenchmarkRpcEcho(b *testing.B) {
 
 	if err != nil {
 		b.Errorf("We should not get an error here: %v", err)
-	} else if r.(string) != "Hello World" {
+	} else if !bytes.Equal([]byte(r.(string)), []byte{1,2,3,4,5}) {
 		b.Errorf("Result Mismatch: %v", r)
 	}
 
